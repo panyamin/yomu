@@ -7,9 +7,12 @@ require 'json'
 require 'socket'
 require 'stringio'
 
+require "rbconfig"
+
 class Yomu
   GEMPATH = File.dirname(File.dirname(__FILE__))
-  JARPATH = File.join(Yomu::GEMPATH, 'jar', 'tika-app-1.6.jar')
+  JARPATH = File.join(Yomu::GEMPATH, 'jar', 'tika-app-1.9.jar')
+  JARPATH2 = RbConfig::CONFIG["host_os"] =~ /cygwin/ ? `cygpath -m #{JARPATH}`.rstrip : JARPATH
   DEFAULT_SERVER_PORT = 9293 # an arbitrary, but perfectly cromulent, port
 
   @@server_port = nil
@@ -39,7 +42,7 @@ class Yomu
   def self._client_read(type, data)
     switch = case type
     when :text
-      '-t'
+      '-t --encoding=UTF-8'
     when :html
       '-h'
     when :metadata
@@ -48,11 +51,13 @@ class Yomu
       '-m -j'
     end
 
-    IO.popen "#{java} -Djava.awt.headless=true -jar #{Yomu::JARPATH} #{switch}", 'r+' do |io|
-      io.write data
-      io.close_write
-      io.read
-    end
+    # IO.popen "#{java} -Djava.awt.headless=true -jar #{Yomu::JARPATH2} #{switch}", 'r+' do |io|
+      # io.write data
+      # io.close_write
+      # io.read
+    # end
+    # byebug
+    `#{java} -Djava.awt.headless=true -jar #{Yomu::JARPATH2} #{switch} < "#{data}"`
   end
 
 
@@ -201,14 +206,15 @@ class Yomu
 
   def data
     return @data if defined? @data
-
-    if path?
-      @data = File.read @path
-    elsif uri?
-      @data = Net::HTTP.get @uri
-    elsif stream?
-      @data = @stream.read
-    end
+    
+    @data = @path
+    # if path?
+      # @data = File.read @path
+    # elsif uri?
+      # @data = Net::HTTP.get @uri
+    # elsif stream?
+      # @data = @stream.read
+    # end
 
     @data
   end
@@ -234,7 +240,7 @@ class Yomu
 
     @@server_port = custom_port || DEFAULT_SERVER_PORT
     
-    @@server_pid = Process.spawn("#{java} -Djava.awt.headless=true -jar #{Yomu::JARPATH} --server --port #{@@server_port} #{switch}")
+    @@server_pid = Process.spawn("#{java} -Djava.awt.headless=true -jar #{Yomu::JARPATH2} --server --port #{@@server_port} #{switch}")
     sleep(2) # Give the server 2 seconds to spin up.
     @@server_pid
   end
